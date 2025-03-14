@@ -25,9 +25,12 @@ uint8_t resolution = OV5642_640x480;
 uint32_t line, column;
 ArduCAM myCAM(OV5642, CS);
 uint8_t saveRAW(void);
-void setup()
+// Task Handles
+TaskHandle_t TaskCamera;
+
+void cameraTask(void *pvParameters)
 {
-  // put your setup code here, to run once:
+// put your setup code here, to run once:
   uint8_t vid, pid;
   uint8_t temp;
 
@@ -36,15 +39,12 @@ void setup()
 #else
   Wire.begin();
 #endif
-  Serial.begin(115200);
   Serial.println(F("ArduCAM Start!"));
-  // set the CS as an output:
+  // set the CS as an output:4096
   pinMode(CS, OUTPUT);
   digitalWrite(CS, HIGH);
   // initialize SPI:
   SPI.begin();
-  SPI.setFrequency(8000000);
-  
   // Reset the CPLD
   myCAM.write_reg(0x07, 0x80);
   delay(100);
@@ -90,31 +90,31 @@ void setup()
   myCAM.set_format(JPEG);
   myCAM.InitCAM();
   myCAM.set_bit(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
-}
 
-void loop() {
-  char VL;
-  byte buf[256];  // Temporary buffer for reading data
-  int m = 0;
-  uint32_t line, column;
-  
-  // Flush and clear the FIFO
-  myCAM.flush_fifo();
-  myCAM.clear_fifo_flag();
-  
-  // Set resolution (modify this as needed)
-  myCAM.OV5642_set_RAW_size(resolution);
-  delay(1000);  // Give time for settings to apply
+  while(1)
+  { 
+    char VL;
+    byte buf[256];  // Temporary buffer for reading data
+    int m = 0;
+    uint32_t line, column;
+    
+    // Flush and clear the FIFO
+    myCAM.flush_fifo();
+    myCAM.clear_fifo_flag();
+    
+    // Set resolution (modify this as needed)
+    myCAM.OV5642_set_RAW_size(resolution);
+    delay(1000);  // Give time for settings to apply
 
-  // Start capture
-  myCAM.start_capture();
-  Serial.println(F("Start capture..."));
-  
-  // Wait until capture is done
-  while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)) {
-    yield();  // Prevent watchdog reset
-  }
-  Serial.println(F("Capture done!"));
+    // Start capture
+    myCAM.start_capture();
+    Serial.println(F("Start capture..."));
+    
+    // Wait until capture is done
+    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)) {
+      yield();  // Prevent watchdog reset
+    }
+    Serial.println(F("Capture done!"));
 
   // Determine resolution settings (for looping purposes)
   if (resolution == OV5642_320x240) {
@@ -134,30 +134,131 @@ void loop() {
     column = 1944;
   }
 
-  Serial.println(F("Printing image bytes (RAW format):"));
+    Serial.println(F("Printing image bytes (RAW format):"));
 
-  Serial.println(F("IMAGE_START"));  // Signal start of image data
+    Serial.println(F("IMAGE_START"));  // Signal start of image data
 
-  for (uint32_t i = 0; i < line; i++) {
-    for (uint32_t j = 0; j < column; j++) {
-      VL = myCAM.read_fifo();  // Read one byte from the camera FIFO
-      Serial.printf("%02X ", VL);  // Print byte in hexadecimal format
+    for (uint32_t i = 0; i < line; i++) {
+      for (uint32_t j = 0; j < column; j++) {
+        VL = myCAM.read_fifo();  // Read one byte from the camera FIFO
+        Serial.printf("%02X ", VL);  // Print byte in hexadecimal format
 
-      // Optional: Print 16 bytes per line for readability (can be removed if needed)
-      if ((i * column + j + 1) % 16 == 0) {
-       Serial.println();
+        // Optional: Print 16 bytes per line for readability (can be removed if needed)
+        if ((i * column + j + 1) % 16 == 0) {
+        Serial.println();
+        }
       }
     }
+
+    Serial.println(F("\nIMAGE_END"));  // Signal end of image data
+    myCAM.clear_fifo_flag();  // Clear the capture flag
+
+    delay(5000);  // Wait before capturing again
+
+
+    Serial.println(F("\nImage print complete."));
+    myCAM.clear_fifo_flag();  // Clear the capture flag
+
+    delay(5000);  // Wait before capturing again}
   }
+}
 
-  Serial.println(F("\nIMAGE_END"));  // Signal end of image data
-  myCAM.clear_fifo_flag();  // Clear the capture flag
+#include <Arduino.h>
 
-  delay(5000);  // Wait before capturing again
+// Motor control pins
+#define MOTOR_PWM 16      // PWM pin for motor speed control
+#define MOTOR_DIR 17      // Direction control pin
+
+// Task handle
+TaskHandle_t TaskMotor = NULL;
+
+// Define speed scaling parameters
+#define MIN_SPEED 50     // Minimum PWM speed
+#define MAX_SPEED 255    // Maximum PWM speed
+#define DEFAULT_SPEED 116
+
+// Variables
+bool rain_detected = true;    // Simulated rain detection
+int wiper_speed_ms = 500;     // Time for 180-degree movement in ms
+
+// Motor initialization
+void motor_init() {
+    pinMode(MOTOR_PWM, OUTPUT);
+    pinMode(MOTOR_DIR, OUTPUT);
+    digitalWrite(MOTOR_DIR, LOW);
+    analogWrite(MOTOR_PWM, 0);
+}
+
+// Motor forward
+void motor_spin_forward(int speed) {
+    digitalWrite(MOTOR_DIR, HIGH);  // Set direction forward
+    analogWrite(MOTOR_PWM, speed);  // Set speed
+    Serial.print("Motor spinning forward at speed: ");
+    Serial.println(speed);
+}
+
+// Motor reverse
+void motor_spin_reverse(int speed) {
+    digitalWrite(MOTOR_DIR, LOW);  // Set direction reverse
+    analogWrite(MOTOR_PWM, speed); // Set speed
+    Serial.print("Motor spinning reverse at speed: ");
+    Serial.println(speed);
+}
+
+// Motor stop
+void motor_stop() {
+    analogWrite(MOTOR_PWM, 0);  // Stop motor
+    Serial.println("Motor stopped");
+}
+
+// Motor task (runs continuously)
+void motor_task(void *pvParameters) {
+    motor_init();  // Initialize motor
+    while (true) {
+        if (rain_detected) {
+            if (wiper_speed_ms < 116) {
+                wiper_speed_ms = 116;  // Prevent too fast motion
+            }
+
+            int speed = map(wiper_speed_ms, 1000, 116, MIN_SPEED, MAX_SPEED);
+            speed = constrain(speed, MIN_SPEED, MAX_SPEED);  // Limit speed
+
+            Serial.print("Setting motor speed to ");
+            Serial.print(speed);
+            Serial.print(" for 180-degree rotation in ");
+            Serial.print(wiper_speed_ms);
+            Serial.println(" ms");
+
+            // Move left (reverse)
+            motor_spin_reverse(speed);
+            vTaskDelay(pdMS_TO_TICKS(wiper_speed_ms));  // Convert ms to RTOS ticks
+            motor_stop();
+            vTaskDelay(pdMS_TO_TICKS(500));
+
+            Serial.println("Spinning Reverse");
+
+            // Move right (forward)
+            motor_spin_forward(speed);
+            vTaskDelay(pdMS_TO_TICKS(wiper_speed_ms));
+            motor_stop();
+
+            Serial.println("Spinning Forward");
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(100));  // Small delay to prevent watchdog reset
+    }
+}
 
 
-  Serial.println(F("\nImage print complete."));
-  myCAM.clear_fifo_flag();  // Clear the capture flag
+void setup(){
+    Serial.begin(115200);
+    xTaskCreatePinnedToCore(cameraTask, "CameraTask", 8192, NULL, 1, &TaskCamera, 0);
+        // Create Motor Task on Core 0
+   xTaskCreatePinnedToCore(
+      motor_task, "MotorTask",4096, NULL, 1, &TaskMotor,0);
+      
+     }
 
-  delay(5000);  // Wait before capturing again
+void loop() {
+   vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
