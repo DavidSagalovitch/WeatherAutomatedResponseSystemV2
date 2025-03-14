@@ -23,6 +23,9 @@ bool is_header = false;
 int total_time = 0;
 uint8_t resolution = OV5642_640x480;
 uint32_t line, column;
+
+void process_streamed_image();
+
 ArduCAM myCAM(OV5642, CS);
 uint8_t saveRAW(void);
 
@@ -134,7 +137,7 @@ void cameraTask(void *pvParameters)
     }
 
     Serial.println(F("Printing image bytes (RAW format):"));
-
+/*
     Serial.println(F("IMAGE_START"));  // Signal start of image data
 
     for (uint32_t i = 0; i < line; i++) {
@@ -148,6 +151,8 @@ void cameraTask(void *pvParameters)
         }
       }
     }
+*/
+    process_streamed_image();
 
     Serial.println(F("\nIMAGE_END"));  // Signal end of image data
     myCAM.clear_fifo_flag();  // Clear the capture flag
