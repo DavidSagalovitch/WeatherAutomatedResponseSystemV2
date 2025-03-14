@@ -43,7 +43,8 @@ void setup()
   digitalWrite(CS, HIGH);
   // initialize SPI:
   SPI.begin();
-
+  SPI.setFrequency(8000000);
+  
   // Reset the CPLD
   myCAM.write_reg(0x07, 0x80);
   delay(100);
@@ -85,8 +86,8 @@ void setup()
       break;
     }
   }
-  // Change to JPEG capture mode and initialize the OV5640 module
-  myCAM.set_format(RAW);
+  // Change to JPEG capture mode and initialize the OV5642 module
+  myCAM.set_format(JPEG);
   myCAM.InitCAM();
   myCAM.set_bit(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
 }
@@ -119,8 +120,7 @@ void loop() {
   if (resolution == OV5642_320x240) {
         line = 320;
         column = 240;
-  }
-    else if (resolution == OV5642_640x480) {
+  } else if (resolution == OV5642_640x480) {
     line = 640;
     column = 480;
   } else if (resolution == OV5642_1280x960) {
