@@ -101,8 +101,6 @@ void process_streamed_image() {
     Serial.println("IMAGE_PROCESS_END");
 }
 
-
-
 // **Edge detection using Sobel filter in stream processing**
 void detect_edges_stream(uint8_t new_row[], uint8_t edge_row[]) {
     for (int x = 1; x < WIDTH - 1; x++) {

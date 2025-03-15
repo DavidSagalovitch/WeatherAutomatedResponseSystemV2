@@ -35,11 +35,8 @@ void cameraTask(void *pvParameters)
   uint8_t vid, pid;
   uint8_t temp;
 
-#if defined(__SAM3X8E__)
-  Wire1.begin();
-#else
   Wire.begin();
-#endif
+
   Serial.println(F("ArduCAM Start!"));
   // set the CS as an output:4096
   pinMode(CS, OUTPUT);
