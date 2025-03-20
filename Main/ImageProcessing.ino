@@ -72,7 +72,7 @@ void process_streamed_image() {
 
                 // Detect blobs from edge map
                 detect_blobs_stream(edge_buffer);
-
+                
                 // Shift row buffers (FIFO-style rolling buffer)
                 memcpy(row_buffer[0], row_buffer[1], tile_width);
                 memcpy(row_buffer[1], row_buffer[2], tile_width);
@@ -148,5 +148,18 @@ float estimate_rain_intensity(int edge_count, int blob_count, int brightness_avg
 
     if (intensity > 100) intensity = 100;
     if (intensity < 0) intensity = 0;
+
+    if(brightness_avg>50)
+    {
+      is_day.store(1, std::memory_order_relaxed);
+    }
+    else
+    {
+      is_day.store(1, std::memory_order_relaxed);
+    }
+
+    camera_rain_intensity.store(intensity, std::memory_order_relaxed);
+
     return intensity;
+
 }
