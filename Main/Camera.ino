@@ -9,6 +9,7 @@
 #include <Wire.h>
 #include "../ArduCAM.h"  
 #include <SPI.h>
+#include <atomic>
 #define OV5642_MINI_5MP_PLUS
 #if !(defined(OV5642_MINI_5MP_PLUS))
 #error Please select the hardware platform and camera module in the ../libraries/ArduCAM/memorysaver.h file
@@ -23,16 +24,20 @@ int total_time = 0;
 uint8_t resolution = OV5642_1280x960;
 uint32_t line, column;
 
+std::atomic<bool> wifi_connected(0); 
+
 void process_streamed_image();
+void wifiSetup();
+void sendPhotoOverWifi();
 
 ArduCAM myCAM(OV5642, CS);
-uint8_t saveRAW(void);
 
 void cameraTask(void *pvParameters)
 {
 // put your setup code here, to run once:
   uint8_t vid, pid;
   uint8_t temp;
+  wifiSetup();
 
   Wire.begin();
   Serial.println(F("ArduCAM Start!"));
@@ -84,7 +89,6 @@ void cameraTask(void *pvParameters)
   }
   // Change to JPEG capture mode and initialize the OV5640 module
   myCAM.set_format(JPEG);
-  delay(100);
   myCAM.InitCAM();
   myCAM.write_reg(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
   myCAM.OV5642_set_JPEG_size(resolution);
@@ -101,7 +105,14 @@ void cameraTask(void *pvParameters)
     myCAM.clear_fifo_flag();
     myCAM.write_reg(ARDUCHIP_FRAMES,0x00);
     // Set resolution (modify this as needed)
-    //myCAM.OV5642_set_RAW_size(resolution);
+    if(wifi_connected.load(std::memory_order_relaxed) == 1){
+      myCAM.set_format(JPEG);
+      myCAM.OV5642_set_JPEG_size(resolution);
+    }
+    else{
+      myCAM.set_format(RAW);
+      myCAM.OV5642_set_RAW_size(resolution);
+    }
     delay(1000);  // Give time for settings to apply
 
     // Start capture
@@ -113,73 +124,17 @@ void cameraTask(void *pvParameters)
       yield();  // Prevent watchdog reset
     }
     Serial.println(F("Capture done!"));
-
-    // Determine resolution settings (for looping purposes)
-    if (resolution == OV5642_320x240) {
-          line = 320;
-          column = 240;
-    } else if (resolution == OV5642_640x480) {
-      line = 640;
-      column = 480;
-    } else if (resolution == OV5642_1280x960) {
-      line = 1280;
-      column = 960;
-    } else if (resolution == OV5642_1920x1080) {
-      line = 1920;
-      column = 1080;
-    } else if (resolution == OV5642_2592x1944) {
-      line = 2592;
-      column = 1944;
+    if(wifi_connected.load(std::memory_order_relaxed) == 1){
+      sendPhotoOverWifi();
+    }
+    else{
+      process_streamed_image();
     }
 
-    Serial.println(F("Printing image bytes (RAW format):"));
-    uint32_t length = myCAM.read_fifo_length();
-    if (length >= 0x7FFFFF || length == 0) {
-      Serial.println(F("Invalid FIFO length."));
-      return;
-    }
-
-    Serial.print(F("JPEG size: "));
-    Serial.println(length);
-    Serial.println(F("IMAGE_START"));
-
-    myCAM.CS_LOW();
-    myCAM.set_fifo_burst();
-
-    for (uint32_t i = 0; i < length; i++) {
-      uint8_t val = SPI.transfer(0x00);
-      Serial.printf("%02X ", val);
-      if ((i + 1) % 16 == 0) {
-        Serial.println();
-      }
-    }
-
-    myCAM.CS_HIGH();
-    Serial.println(F("\nIMAGE_END"));
-/*
-    Serial.println(F("IMAGE_START"));  // Signal start of image data
-
-    for (uint32_t i = 0; i < line; i++) {
-      for (uint32_t j = 0; j < column; j++) {
-        VL = myCAM.read_fifo();  // Read one byte from the camera FIFO
-        Serial.printf("%02X ", VL);  // Print byte in hexadecimal format
-
-        // Optional: Print 16 bytes per line for readability (can be removed if needed)
-        if ((i * column + j + 1) % 16 == 0) {
-        Serial.println();
-        }
-      }
-    }
-
-    process_streamed_image();
+    myCAM.flush_fifo();
+    myCAM.clear_fifo_flag();
 
     Serial.println(F("\nIMAGE_END"));  // Signal end of image data
-    */
-
-
-    Serial.println(F("\nImage print complete."));
     myCAM.clear_fifo_flag();  // Clear the capture flag
-
-    delay(5000);  // Wait before capturing again}
   }
 }

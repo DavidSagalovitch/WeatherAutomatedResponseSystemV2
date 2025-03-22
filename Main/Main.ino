@@ -6,7 +6,7 @@ void setup(){
     Serial.begin(1000000);
     xTaskCreatePinnedToCore(cameraTask, "CameraTask", 8192, NULL, 1, &TaskCamera, 1);
     xTaskCreatePinnedToCore(motor_task, "MotorTask", 4096, NULL, 1, &TaskMotor, 0);
-    xTaskCreatePinnedToCore(lidarTask, "LidarTask", 4096, NULL, 1, &TaskLidar, 0);
+    //xTaskCreatePinnedToCore(lidarTask, "LidarTask", 4096, NULL, 1, &TaskLidar, 0);
     }
 
 void loop() {

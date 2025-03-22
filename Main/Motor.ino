@@ -9,10 +9,8 @@
 #define MIN_SPEED 50     // Minimum PWM speed
 #define MAX_SPEED 255    // Maximum PWM speed
 #define DEFAULT_SPEED 116
+uint16_t getWiperSpeed();
 
-// Variables
-bool rain_detected = true;    // Simulated rain detection
-int wiper_speed_ms = 500;     // Time for 180-degree movement in ms
 
 // Motor initialization
 void motor_init() {
@@ -46,9 +44,10 @@ void motor_stop() {
 
 // Motor task (runs continuously)
 void motor_task(void *pvParameters) {
-    motor_init();  // Initialize motor
+    motor_init(); 
     while (true) {
-        if (rain_detected) {
+      int wiper_speed_ms = getWiperSpeed();
+        if (wiper_speed_ms>0) {
             if (wiper_speed_ms < 116) {
                 wiper_speed_ms = 116;  // Prevent too fast motion
             }
