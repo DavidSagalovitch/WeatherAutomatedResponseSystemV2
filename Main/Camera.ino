@@ -10,8 +10,6 @@
 #include "../ArduCAM.h"  
 #include <SPI.h>
 #define OV5642_MINI_5MP_PLUS
-//#include "../src/memorysaver.h"
-// This demo can only work on OV5640_MINI_5MP_PLUS or OV5642_MINI_5MP_PLUS platform.
 #if !(defined(OV5642_MINI_5MP_PLUS))
 #error Please select the hardware platform and camera module in the ../libraries/ArduCAM/memorysaver.h file
 #endif
@@ -21,7 +19,8 @@ const int CS = 5;
 #define SD_CS 9
 bool is_header = false;
 int total_time = 0;
-uint8_t resolution = OV5642_640x480;
+//uint8_t resolution = OV5642_320x240;
+uint8_t resolution = OV5642_1280x960;
 uint32_t line, column;
 
 void process_streamed_image();
@@ -36,7 +35,6 @@ void cameraTask(void *pvParameters)
   uint8_t temp;
 
   Wire.begin();
-
   Serial.println(F("ArduCAM Start!"));
   // set the CS as an output:4096
   pinMode(CS, OUTPUT);
@@ -85,9 +83,11 @@ void cameraTask(void *pvParameters)
     }
   }
   // Change to JPEG capture mode and initialize the OV5640 module
-  myCAM.set_format(RAW);
+  myCAM.set_format(JPEG);
+  delay(100);
   myCAM.InitCAM();
-  myCAM.set_bit(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
+  myCAM.write_reg(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
+  myCAM.OV5642_set_JPEG_size(resolution);
 
   while(1)
   { 
@@ -99,9 +99,9 @@ void cameraTask(void *pvParameters)
     // Flush and clear the FIFO
     myCAM.flush_fifo();
     myCAM.clear_fifo_flag();
-    
+    myCAM.write_reg(ARDUCHIP_FRAMES,0x00);
     // Set resolution (modify this as needed)
-    myCAM.OV5642_set_RAW_size(resolution);
+    //myCAM.OV5642_set_RAW_size(resolution);
     delay(1000);  // Give time for settings to apply
 
     // Start capture
@@ -118,8 +118,7 @@ void cameraTask(void *pvParameters)
     if (resolution == OV5642_320x240) {
           line = 320;
           column = 240;
-    }
-      else if (resolution == OV5642_640x480) {
+    } else if (resolution == OV5642_640x480) {
       line = 640;
       column = 480;
     } else if (resolution == OV5642_1280x960) {
@@ -134,6 +133,29 @@ void cameraTask(void *pvParameters)
     }
 
     Serial.println(F("Printing image bytes (RAW format):"));
+    uint32_t length = myCAM.read_fifo_length();
+    if (length >= 0x7FFFFF || length == 0) {
+      Serial.println(F("Invalid FIFO length."));
+      return;
+    }
+
+    Serial.print(F("JPEG size: "));
+    Serial.println(length);
+    Serial.println(F("IMAGE_START"));
+
+    myCAM.CS_LOW();
+    myCAM.set_fifo_burst();
+
+    for (uint32_t i = 0; i < length; i++) {
+      uint8_t val = SPI.transfer(0x00);
+      Serial.printf("%02X ", val);
+      if ((i + 1) % 16 == 0) {
+        Serial.println();
+      }
+    }
+
+    myCAM.CS_HIGH();
+    Serial.println(F("\nIMAGE_END"));
 /*
     Serial.println(F("IMAGE_START"));  // Signal start of image data
 
@@ -148,13 +170,11 @@ void cameraTask(void *pvParameters)
         }
       }
     }
-*/
+
     process_streamed_image();
 
     Serial.println(F("\nIMAGE_END"));  // Signal end of image data
-    myCAM.clear_fifo_flag();  // Clear the capture flag
-
-    delay(5000);  // Wait before capturing again
+    */
 
 
     Serial.println(F("\nImage print complete."));

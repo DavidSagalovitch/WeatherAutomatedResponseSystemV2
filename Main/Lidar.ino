@@ -72,10 +72,12 @@ bool detect_water() {
 
 void lidarTask(void *pvParameters) {
   Wire.begin();
-  if (detect_water()) {
+  while (1) {
+    if (detect_water()) {
       Serial.println("Water detected on windshield!");
-  } else {
-      Serial.println("Windshield is dry.");
+    } else {
+        Serial.println("Windshield is dry.");
+    }
+    delay(2000);
   }
-  delay(2000);
 }
