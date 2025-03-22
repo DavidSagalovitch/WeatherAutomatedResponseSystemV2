@@ -8,8 +8,8 @@ std::atomic<bool> lidar_rain_intensity(0);
 
 uint16_t getWiperSpeed()
 {
-  bool day = is_day.load(std::memory_order_relaxed)
-
+  bool day = is_day.load(std::memory_order_relaxed);
+/*
   if(day)
   {
 
@@ -17,5 +17,6 @@ uint16_t getWiperSpeed()
   else{
     
   }
+  */
   return 0;
 }

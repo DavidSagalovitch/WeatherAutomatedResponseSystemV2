@@ -82,8 +82,6 @@ void process_streamed_image() {
         }
              
     }
-    myCAM.flush_fifo();
-    myCAM.clear_fifo_flag();
 
     // Compute final results
     int brightness_avg = brightness_sum /(float)(WIDTH * HEIGHT);
@@ -155,7 +153,7 @@ float estimate_rain_intensity(int edge_count, int blob_count, int brightness_avg
     }
     else
     {
-      is_day.store(1, std::memory_order_relaxed);
+      is_day.store(0, std::memory_order_relaxed);
     }
 
     camera_rain_intensity.store(intensity, std::memory_order_relaxed);
