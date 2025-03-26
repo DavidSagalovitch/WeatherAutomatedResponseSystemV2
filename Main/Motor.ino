@@ -52,7 +52,7 @@ void motor_task(void *pvParameters) {
                 wiper_speed_ms = 116;  // Prevent too fast motion
             }
 
-            int speed = map(wiper_speed_ms, 1000, 116, MIN_SPEED, MAX_SPEED);
+            int speed = map(wiper_speed_ms, 1500, 116, MIN_SPEED, MAX_SPEED);
             speed = constrain(speed, MIN_SPEED, MAX_SPEED);  // Limit speed
 
             Serial.print("Setting motor speed to ");

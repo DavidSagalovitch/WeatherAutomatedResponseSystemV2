@@ -112,6 +112,11 @@ void sendPhotoOverWifi()
 
   Serial.println("Server message:");
   Serial.println(body);
+  
+  // Convert and store
+  float intensity = body.toFloat();
+  Serial.print("Parsed rain intensity: ");
+  Serial.println(intensity);
 
   camera_rain_intensity.store(intensity, std::memory_order_relaxed);
 
