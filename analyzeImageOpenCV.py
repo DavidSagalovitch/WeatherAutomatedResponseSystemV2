@@ -8,41 +8,47 @@ app = Flask(__name__)
 def detect_rain(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Apply Gaussian Blur to reduce noise before edge detection
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    # Apply stronger Gaussian Blur to reduce background texture
+    blurred = cv2.GaussianBlur(gray, (7, 7), 0)
 
-    # Edge detection
-    edges = cv2.Canny(blurred, 30, 100)
+    # Edge detection with higher thresholds to avoid small noise
+    edges = cv2.Canny(blurred, 50, 150)
 
-    # Morphological closing to fill gaps in raindrops
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    # Morphological closing to fill gaps in raindrop outlines
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
 
-    # Find contours (potential raindrops)
+    # Find contours
     contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     rain_blobs = []
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if 20 < area < 1000:  # Adjust these thresholds based on expected drop size
-            rain_blobs.append(cnt)
+        perimeter = cv2.arcLength(cnt, True)
+        circularity = (4 * np.pi * area / (perimeter * perimeter)) if perimeter > 0 else 0
 
-    # Overlay with filled blobs for better visibility
+        # Filter for typical raindrop size and shape (somewhat circular)
+        if 80 < area < 800 and circularity > 0.5:
+            # Optional: brightness mask filter
+            mask = np.zeros(gray.shape, dtype=np.uint8)
+            cv2.drawContours(mask, [cnt], -1, 255, -1)
+            mean_brightness = cv2.mean(gray, mask=mask)[0]
+            if mean_brightness > 120:  # raindrops are often bright reflections
+                rain_blobs.append(cnt)
+
+    # Overlay detected raindrops
     overlay = image.copy()
     for cnt in rain_blobs:
         x, y, w, h = cv2.boundingRect(cnt)
         cv2.rectangle(overlay, (x, y), (x + w, y + h), (0, 0, 255), 1)
 
-    # Estimate rain intensity
     blob_count = len(rain_blobs)
-    print(blob_count)
-    avg_area = np.mean([cv2.contourArea(c) for c in rain_blobs]) if rain_blobs else 0
     total_blob_area = sum([cv2.contourArea(c) for c in rain_blobs])
-
-    # Scaled rain intensity based on total blob coverage and count
     image_area = image.shape[0] * image.shape[1]
     coverage_ratio = total_blob_area / image_area
-    intensity = int(min(100, blob_count * coverage_ratio * 400))  # tweak scale factor
+
+    # Make intensity rely more on coverage
+    intensity = int(min(100, coverage_ratio * 10000))  # scale factor tuned
 
     return overlay, intensity
 

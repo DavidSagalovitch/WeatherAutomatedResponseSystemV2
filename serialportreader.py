@@ -2,9 +2,8 @@ import serial
 import os
 
 # Configuration
-SERIAL_PORT = "COM3"  # Change to your actual port
-BAUD_RATE = 115200
-
+SERIAL_PORT = "COM12"  # Change to your actual port
+BAUD_RATE = 1000000
 # Get the current script directory
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_FILE = os.path.join(SCRIPT_DIR, "captured_image.jpg")

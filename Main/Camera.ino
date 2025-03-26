@@ -11,8 +11,6 @@
 #include <SPI.h>
 #include <atomic>
 #define OV5642_MINI_5MP_PLUS
-//#include "../src/memorysaver.h"
-// This demo can only work on OV5640_MINI_5MP_PLUS or OV5642_MINI_5MP_PLUS platform.
 #if !(defined(OV5642_MINI_5MP_PLUS))
 #error Please select the hardware platform and camera module in the ../libraries/ArduCAM/memorysaver.h file
 #endif
@@ -22,7 +20,8 @@ const int CS = 5;
 #define SD_CS 9
 bool is_header = false;
 int total_time = 0;
-uint8_t resolution = OV5642_640x480;
+//uint8_t resolution = OV5642_320x240;
+uint8_t resolution = OV5642_1280x960;
 uint32_t line, column;
 
 std::atomic<bool> wifi_connected(0); 
@@ -41,7 +40,6 @@ void cameraTask(void *pvParameters)
   wifiSetup();
 
   Wire.begin();
-
   Serial.println(F("ArduCAM Start!"));
   // set the CS as an output:4096
   pinMode(CS, OUTPUT);
@@ -92,7 +90,8 @@ void cameraTask(void *pvParameters)
   // Change to JPEG capture mode and initialize the OV5640 module
   myCAM.set_format(JPEG);
   myCAM.InitCAM();
-  myCAM.set_bit(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
+  myCAM.write_reg(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
+  myCAM.OV5642_set_JPEG_size(resolution);
 
   while(1)
   { 
@@ -104,7 +103,7 @@ void cameraTask(void *pvParameters)
     // Flush and clear the FIFO
     myCAM.flush_fifo();
     myCAM.clear_fifo_flag();
-    
+    myCAM.write_reg(ARDUCHIP_FRAMES,0x00);
     // Set resolution (modify this as needed)
     if(wifi_connected.load(std::memory_order_relaxed) == 1){
       myCAM.set_format(JPEG);
@@ -133,9 +132,6 @@ void cameraTask(void *pvParameters)
     }
 
     myCAM.flush_fifo();
-    myCAM.clear_fifo_flag();
-
-    Serial.println(F("\nIMAGE_END"));  // Signal end of image data
     myCAM.clear_fifo_flag();  // Clear the capture flag
   }
 }
