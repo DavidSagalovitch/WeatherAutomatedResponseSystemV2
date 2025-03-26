@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['raindrop']
+
+roboflow:
+  workspace: david-s-wdw9e
+  project: raindrop-q3bsb-nxzfd
+  version: 4
+  license: CC BY 4.0
+  url: https://app.roboflow.com/david-s-wdw9e/raindrop-q3bsb-nxzfd/4
