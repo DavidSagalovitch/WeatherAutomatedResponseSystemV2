@@ -132,9 +132,6 @@ void cameraTask(void *pvParameters)
     }
 
     myCAM.flush_fifo();
-    myCAM.clear_fifo_flag();
-
-    Serial.println(F("\nIMAGE_END"));  // Signal end of image data
     myCAM.clear_fifo_flag();  // Clear the capture flag
   }
 }
