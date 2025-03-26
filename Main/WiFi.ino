@@ -54,7 +54,7 @@ void sendPhotoOverWifi()
 
     // Send HTTP POST headers
     client.println("POST /upload HTTP/1.1");
-    client.println("Host: 192.168.1.42");
+    client.println("Host: 192.168.1.5");
     client.println("Content-Type: image/jpeg");
     client.print("Content-Length: ");
     client.println(length);
