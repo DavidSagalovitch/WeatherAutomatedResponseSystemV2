@@ -113,6 +113,8 @@ void sendPhotoOverWifi()
   Serial.println("Server message:");
   Serial.println(body);
 
+  camera_rain_intensity.store(intensity, std::memory_order_relaxed);
+
   client.stop();
 
   } else {
