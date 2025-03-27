@@ -3,6 +3,7 @@ TaskHandle_t TaskMotor;  // Declare task handle
 TaskHandle_t TaskLidar;  // Declare task handle
 TaskHandle_t TaskFan;  // Declare task handle
 
+
 void setup(){
     Serial.begin(1000000);
     xTaskCreatePinnedToCore(cameraTask, "CameraTask", 8192, NULL, 1, &TaskCamera, 1);

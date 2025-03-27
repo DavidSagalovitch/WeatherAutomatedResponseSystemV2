@@ -4,11 +4,12 @@
 #define MOTOR_PWM 16      // PWM pin for motor speed control
 #define MOTOR_DIR 17      // Direction control pin
 
-
 // Define speed scaling parameters
 #define MIN_SPEED 50     // Minimum PWM speed
 #define MAX_SPEED 255    // Maximum PWM speed
-#define DEFAULT_SPEED 116
+
+#define WIPER_CYCLES 7
+
 uint16_t getWiperSpeed();
 
 
@@ -47,37 +48,39 @@ void motor_task(void *pvParameters) {
     motor_init(); 
     while (true) {
       int wiper_speed_ms = getWiperSpeed();
-        if (wiper_speed_ms>0) {
-            if (wiper_speed_ms < 116) {
-                wiper_speed_ms = 116;  // Prevent too fast motion
-            }
+      for (int i = 0; i < WIPER_CYCLES; i++){
+          if (wiper_speed_ms>0) {
+              if (wiper_speed_ms < 116) {
+                  wiper_speed_ms = 116;  // Prevent too fast motion
+              }
 
-            int speed = map(wiper_speed_ms, 1500, 116, MIN_SPEED, MAX_SPEED);
-            speed = constrain(speed, MIN_SPEED, MAX_SPEED);  // Limit speed
+              int speed = map(wiper_speed_ms, 1500, 116, MIN_SPEED, MAX_SPEED);
+              speed = constrain(speed, MIN_SPEED, MAX_SPEED);  // Limit speed
 
-            Serial.print("Setting motor speed to ");
-            Serial.print(speed);
-            Serial.print(" for 180-degree rotation in ");
-            Serial.print(wiper_speed_ms);
-            Serial.println(" ms");
+              Serial.print("Setting motor speed to ");
+              Serial.print(speed);
+              Serial.print(" for 180-degree rotation in ");
+              Serial.print(wiper_speed_ms);
+              Serial.println(" ms");
 
-            // Move left (reverse)
-            motor_spin_reverse(speed);
-            vTaskDelay(pdMS_TO_TICKS(wiper_speed_ms));  // Convert ms to RTOS ticks
-            motor_stop();
-            vTaskDelay(pdMS_TO_TICKS(500));
+              // Move left (reverse)
+              motor_spin_reverse(speed);
+              vTaskDelay(pdMS_TO_TICKS(wiper_speed_ms));  // Convert ms to RTOS ticks
+              motor_stop();
+              vTaskDelay(pdMS_TO_TICKS(500));
 
-            Serial.println("Spinning Reverse");
+              Serial.println("Spinning Reverse");
 
-            // Move right (forward)
-            motor_spin_forward(speed);
-            vTaskDelay(pdMS_TO_TICKS(wiper_speed_ms));
-            motor_stop();
+              // Move right (forward)
+              motor_spin_forward(speed);
+              vTaskDelay(pdMS_TO_TICKS(wiper_speed_ms));
+              motor_stop();
 
-            Serial.println("Spinning Forward");
-        }
+              Serial.println("Spinning Forward");
+          }
 
-        vTaskDelay(pdMS_TO_TICKS(100));  // Small delay to prevent watchdog reset
+          vTaskDelay(pdMS_TO_TICKS(100));  // Small delay to prevent watchdog reset
+      }
     }
 }
 

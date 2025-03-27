@@ -9,7 +9,7 @@ from ultralytics import YOLO
 app = Flask(__name__)
 
 # Load YOLOv5 or YOLOv8 model trained for raindrop detection
-model = YOLO("yolov5_raindrops.pt")  # Replace with your actual model file
+model = YOLO("runs/detect/raindrop_detector_best2/weights/best.pt")  # Replace with your actual model file
 
 def detect_raindrops_yolo(image):
     # Convert OpenCV image (BGR) to RGB and run inference

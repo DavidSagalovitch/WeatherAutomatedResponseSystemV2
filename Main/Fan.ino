@@ -12,10 +12,10 @@ void IRAM_ATTR tachISR() {
   tach_pulse_count++;
 }
 
-void setup() {
+void fanSetup() {
   // Set up PWM on GPIO 12
-  ledcSetup(0, FAN_PWM_FREQ, FAN_PWM_RESOLUTION);  
-  ledcAttachPin(FAN_PWM_PIN, 0);
+  //ledcSetup(0, FAN_PWM_FREQ, FAN_PWM_RESOLUTION);  
+  //ledcAttachPin(FAN_PWM_PIN, 0);
 
   // Set up tach input on GPIO 13
   pinMode(FAN_TACH_PIN, INPUT_PULLUP);

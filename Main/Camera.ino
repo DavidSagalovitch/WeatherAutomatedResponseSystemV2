@@ -26,7 +26,7 @@ uint32_t line, column;
 
 std::atomic<bool> wifi_connected(0); 
 
-void process_streamed_image();
+void process_image();
 void wifiSetup();
 void sendPhotoOverWifi();
 
@@ -107,10 +107,12 @@ void cameraTask(void *pvParameters)
     // Set resolution (modify this as needed)
     if(wifi_connected.load(std::memory_order_relaxed) == 1){
       myCAM.set_format(JPEG);
+      resolution = OV5642_1280x960;
       myCAM.OV5642_set_JPEG_size(resolution);
     }
     else{
       myCAM.set_format(RAW);
+      resolution = OV5642_320x240;
       myCAM.OV5642_set_RAW_size(resolution);
     }
     delay(1000);  // Give time for settings to apply
@@ -128,7 +130,7 @@ void cameraTask(void *pvParameters)
       sendPhotoOverWifi();
     }
     else{
-      process_streamed_image();
+      process_image();
     }
 
     myCAM.flush_fifo();
