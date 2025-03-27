@@ -57,11 +57,11 @@ void motor_task(void *pvParameters) {
               int speed = map(wiper_speed_ms, 1500, 116, MIN_SPEED, MAX_SPEED);
               speed = constrain(speed, MIN_SPEED, MAX_SPEED);  // Limit speed
 
-              Serial.print("Setting motor speed to ");
-              Serial.print(speed);
-              Serial.print(" for 180-degree rotation in ");
-              Serial.print(wiper_speed_ms);
-              Serial.println(" ms");
+              //Serial.print("Setting motor speed to ");
+              //Serial.print(speed);
+              //Serial.print(" for 180-degree rotation in ");
+              //Serial.print(wiper_speed_ms);
+              //Serial.println(" ms");
 
               // Move left (reverse)
               motor_spin_reverse(speed);
@@ -69,17 +69,19 @@ void motor_task(void *pvParameters) {
               motor_stop();
               vTaskDelay(pdMS_TO_TICKS(500));
 
-              Serial.println("Spinning Reverse");
+              //Serial.println("Spinning Reverse");
 
               // Move right (forward)
               motor_spin_forward(speed);
               vTaskDelay(pdMS_TO_TICKS(wiper_speed_ms));
               motor_stop();
 
-              Serial.println("Spinning Forward");
+              //Serial.println("Spinning Forward");
+              wiper_at_rest.store(0, std::memory_order_relaxed);
           }
 
-          vTaskDelay(pdMS_TO_TICKS(100));  // Small delay to prevent watchdog reset
+          vTaskDelay(pdMS_TO_TICKS(150));  // Small delay to prevent watchdog reset
+          wiper_at_rest.store(1, std::memory_order_relaxed);
       }
     }
 }

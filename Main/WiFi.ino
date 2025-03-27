@@ -8,7 +8,23 @@ const char* server = "172.17.129.132"; //McMaster on David's laptop
 //const char* server = "192.168.2.27";   // VIKTOR
 const int port = 5000;
 
- WiFiClient client;
+WiFiClient client;
+
+std::atomic<bool> wifi_reconnect_in_progress(false);
+
+void wifiReconnectTask(void *pvParameters) {
+  Serial.println("WiFi reconnect task started...");
+
+  WiFi.disconnect(true);  // Optional hard reset
+  delay(1000);
+
+  wifiSetup();  // Your reconnect logic
+
+  Serial.println("WiFi reconnect task finished.");
+  wifi_reconnect_in_progress.store(false);
+  vTaskDelete(NULL);  // Kill this task
+}
+
  void wifiSetup()
  {
     // Connect to WiFi
@@ -33,10 +49,23 @@ const int port = 5000;
 
 void sendPhotoOverWifi()
 {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected!");
-    wifiSetup();
-  }
+  if (WiFi.status() != WL_CONNECTED && !wifi_reconnect_in_progress.load()) {
+      Serial.println("\nWiFi connection failed (timeout).");
+      wifi_connected.store(0, std::memory_order_relaxed);
+        Serial.println("WiFi disconnected — starting reconnect task.");
+        wifi_reconnect_in_progress.store(true);
+
+        xTaskCreatePinnedToCore(
+            wifiReconnectTask,       // Task function
+            "WiFiReconnect",         // Name
+            4096,                    // Stack size
+            NULL,                    // Params
+            1,                       // Priority
+            NULL,                    // Handle (not needed)
+            1                        // Core (can be 0 or 1)
+        );
+        return;
+    }
   // Get image length from FIFO
   uint32_t length = myCAM.read_fifo_length();
   Serial.print("Read image length: ");

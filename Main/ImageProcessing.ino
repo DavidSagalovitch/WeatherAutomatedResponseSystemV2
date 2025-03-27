@@ -17,13 +17,12 @@ int blob_count = 0;
 void process_image();
 void detect_edges_stream(uint8_t new_row[], uint8_t edge_row[]);
 void detect_blobs_stream(uint8_t edge_row[]);
-float estimate_rain_intensity(int edge_count, int blob_count, int brightness_avg);
+float estimate_rain_intensity(int blob_count, int brightness_avg);
 
 void process_image() {
     brightness_sum = 0;
     edge_count = 0;
     blob_count = 0;
-    int total_blob_area = 0;
 
     Serial.println("IMAGE_PROCESS_START");
 
@@ -64,7 +63,7 @@ void process_image() {
                 }
 
                 detect_edges_stream(row_buffer[1], edge_buffer);
-                detect_blobs_stream(edge_buffer);  // Updated to count blobs
+                detect_blobs_stream(edge_buffer);
 
                 memcpy(row_buffer[0], row_buffer[1], tile_width);
                 memcpy(row_buffer[1], row_buffer[2], tile_width);
@@ -74,31 +73,26 @@ void process_image() {
         }
     }
 
-    // Estimate total blob area
-    int estimated_blob_area_per_blob = 120;  // midpoint of 80–800 in OpenCV
-    total_blob_area = blob_count * estimated_blob_area_per_blob;
     if (edge_count < 100 && blob_count < 10) {
         Serial.println("Flat scene detected — forcing rain intensity to 0");
         camera_rain_intensity.store(0, std::memory_order_relaxed);
         return;
     }
+
     int brightness_avg = brightness_sum / (WIDTH * HEIGHT);
-    float rain_intensity = estimate_rain_intensity(total_blob_area, brightness_avg);
+    float rain_intensity = estimate_rain_intensity(blob_count, brightness_avg);
 
     Serial.print("Brightness: ");
     Serial.print(brightness_avg);
     Serial.print(", Blob Count: ");
     Serial.print(blob_count);
-    Serial.print(", Estimated Total Blob Area: ");
-    Serial.print(total_blob_area);
     Serial.print(", Estimated Rain Intensity: ");
     Serial.println(rain_intensity, 2);
 
     Serial.println("IMAGE_PROCESS_END");
 }
 
-
-// **Edge detection using Sobel filter in stream processing**
+// Edge detection using Sobel filter in stream processing
 void detect_edges_stream(uint8_t new_row[], uint8_t edge_row[]) {
     for (int x = 1; x < WIDTH - 1; x++) {
         int gx = -row_buffer[0][x-1] + row_buffer[0][x+1] 
@@ -114,13 +108,14 @@ void detect_edges_stream(uint8_t new_row[], uint8_t edge_row[]) {
     }
 }
 
+// Blob detection from 1D row-wise edge streaks
 void detect_blobs_stream(uint8_t edge_row[]) {
-    static int in_blob = 0;
-    static int blob_size = 0;
-    static int brightness_sum_blob = 0;
+    bool in_blob = false;
+    int blob_size = 0;
+    int brightness_sum_blob = 0;
 
-    const int BLOB_MAX_SIZE = 80;    // Approximate OpenCV upper bound
-    const int MIN_BRIGHTNESS = 120;   // Match OpenCV brightness filter
+    const int BLOB_MAX_SIZE = 80;
+    const int MIN_BRIGHTNESS = 135;
 
     for (int x = 0; x < WIDTH; x++) {
         uint8_t edge = edge_row[x];
@@ -128,7 +123,7 @@ void detect_blobs_stream(uint8_t edge_row[]) {
 
         if (edge == 255) {
             if (!in_blob) {
-                in_blob = 1;
+                in_blob = true;
                 blob_size = 1;
                 brightness_sum_blob = brightness;
             } else {
@@ -136,9 +131,8 @@ void detect_blobs_stream(uint8_t edge_row[]) {
                 brightness_sum_blob += brightness;
             }
 
-            // If blob gets too big, discard it
             if (blob_size > BLOB_MAX_SIZE) {
-                in_blob = 0;
+                in_blob = false;
                 blob_size = 0;
                 brightness_sum_blob = 0;
             }
@@ -148,33 +142,47 @@ void detect_blobs_stream(uint8_t edge_row[]) {
                 float avg_brightness = brightness_sum_blob / (float)blob_size;
 
                 if (blob_size >= BLOB_MIN_SIZE && avg_brightness > MIN_BRIGHTNESS) {
-                    blob_count++;  // Valid blob, similar to OpenCV filter
+                    blob_count++;
+                    Serial.printf("Blob accepted - size: %d, brightness: %.1f\n", blob_size, avg_brightness);
                 }
 
-                in_blob = 0;
+                in_blob = false;
                 blob_size = 0;
                 brightness_sum_blob = 0;
             }
         }
     }
 
-    // Handle edge blob at end of row
     if (in_blob) {
         float avg_brightness = brightness_sum_blob / (float)blob_size;
         if (blob_size >= BLOB_MIN_SIZE && avg_brightness > MIN_BRIGHTNESS) {
             blob_count++;
+            Serial.printf("Blob accepted - size: %d, brightness: %.1f\n", blob_size, avg_brightness);
         }
-        in_blob = 0;
-        blob_size = 0;
-        brightness_sum_blob = 0;
     }
 }
 
+float estimate_rain_intensity(int blob_count, int brightness_avg) {
+    // Minimum number of blobs before we start counting
+    const int BLOB_COUNT_THRESHOLD = 5;
 
-float estimate_rain_intensity(int total_blob_area, int brightness_avg) {
-    float image_area = WIDTH * HEIGHT;
-    float coverage_ratio = (float)total_blob_area / image_area;
-    float intensity = coverage_ratio * 10000.0f;
+    if (blob_count < BLOB_COUNT_THRESHOLD) {
+        camera_rain_intensity.store(0, std::memory_order_relaxed);
+        is_day.store((brightness_avg > 50) ? 1 : 0, std::memory_order_relaxed);
+        return 0.0f;
+    }
+    float edge_to_blob_ratio = (float)edge_count / (blob_count + 1);  // +1 to avoid div/0
+
+    if (blob_count > 30 && edge_to_blob_ratio < 5.0f) {
+        Serial.println("Obstruction detected (low edge-to-blob ratio) — suppressing rain.");
+        camera_rain_intensity.store(0, std::memory_order_relaxed);
+        return 0.0f;
+    }
+
+
+    // Adjust denominator (300) to tune ramp rate
+    float adjusted_blob_count = blob_count - BLOB_COUNT_THRESHOLD + 1;
+    float intensity = logf(1 + adjusted_blob_count) / logf(300.0f) * 100.0f;
 
     if (intensity > 100) intensity = 100;
     if (intensity < 0) intensity = 0;
@@ -184,3 +192,4 @@ float estimate_rain_intensity(int total_blob_area, int brightness_avg) {
 
     return intensity;
 }
+

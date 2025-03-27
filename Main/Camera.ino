@@ -24,6 +24,7 @@ int total_time = 0;
 uint8_t resolution = OV5642_1280x960;
 uint32_t line, column;
 
+std::atomic<bool> wiper_at_rest(0);
 std::atomic<bool> wifi_connected(0); 
 
 void process_image();
@@ -31,6 +32,42 @@ void wifiSetup();
 void sendPhotoOverWifi();
 
 ArduCAM myCAM(OV5642, CS);
+
+void initializeCameraForWifi() {
+  Serial.println("📸 Initializing camera for WiFi mode (JPEG @ 1280x960)...");
+
+  myCAM.set_format(JPEG);
+  delay(100);
+  myCAM.InitCAM();  // Good idea to reinit when changing modes
+  myCAM.write_reg(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
+  myCAM.OV5642_set_JPEG_size(OV5642_1280x960);
+  delay(100);
+
+  myCAM.flush_fifo();
+  myCAM.clear_fifo_flag();
+  myCAM.write_reg(ARDUCHIP_FRAMES, 0x00);
+
+  Serial.println("Camera ready for JPEG capture.");
+}
+
+void initializeCameraForLocalProcessing() {
+  Serial.println("📸 Initializing camera for RAW mode (320x240)...");
+
+  myCAM.set_format(RAW);
+  delay(100);
+  myCAM.InitCAM();  // Reinitialize
+  myCAM.write_reg(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
+  myCAM.OV5642_set_RAW_size(OV5642_320x240);
+  delay(100);
+
+  myCAM.flush_fifo();
+  myCAM.clear_fifo_flag();
+  myCAM.write_reg(ARDUCHIP_FRAMES, 0x00);
+
+  Serial.println("Camera ready for RAW grayscale capture.");
+}
+
+
 
 void cameraTask(void *pvParameters)
 {
@@ -95,45 +132,53 @@ void cameraTask(void *pvParameters)
 
   while(1)
   { 
-    char VL;
-    byte buf[256];  // Temporary buffer for reading data
-    int m = 0;
-    uint32_t line, column;
-    
-    // Flush and clear the FIFO
-    myCAM.flush_fifo();
-    myCAM.clear_fifo_flag();
-    myCAM.write_reg(ARDUCHIP_FRAMES,0x00);
-    // Set resolution (modify this as needed)
-    if(wifi_connected.load(std::memory_order_relaxed) == 1){
-      myCAM.set_format(JPEG);
-      resolution = OV5642_1280x960;
-      myCAM.OV5642_set_JPEG_size(resolution);
-    }
-    else{
-      myCAM.set_format(RAW);
-      resolution = OV5642_320x240;
-      myCAM.OV5642_set_RAW_size(resolution);
-    }
-    delay(1000);  // Give time for settings to apply
+    if(wiper_at_rest.load(std::memory_order_relaxed))
+    {
+      char VL;
+      byte buf[256];  // Temporary buffer for reading data
+      int m = 0;
+      uint32_t line, column;
+      
+      // Flush and clear the FIFO
+      myCAM.flush_fifo();
+      myCAM.clear_fifo_flag();
+      myCAM.write_reg(ARDUCHIP_FRAMES,0x00);
+      // Set resolution (modify this as needed)
+      if (wifi_connected.load(std::memory_order_relaxed)) {
+          initializeCameraForWifi();
+      } else {
+          initializeCameraForLocalProcessing();
+      }
 
-    // Start capture
-    myCAM.start_capture();
-    Serial.println(F("Start capture..."));
-    
-    // Wait until capture is done
-    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)) {
-      yield();  // Prevent watchdog reset
-    }
-    Serial.println(F("Capture done!"));
-    if(wifi_connected.load(std::memory_order_relaxed) == 1){
-      sendPhotoOverWifi();
-    }
-    else{
-      process_image();
-    }
+      delay(1000);  // Give time for settings to apply
 
-    myCAM.flush_fifo();
-    myCAM.clear_fifo_flag();  // Clear the capture flag
+      // Start capture
+      myCAM.start_capture();
+      Serial.println(F("Start capture..."));
+      
+      // Wait until capture is done
+      while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)) {
+        yield();  // Prevent watchdog reset
+      }
+      Serial.println(F("Capture done!"));
+      if(wifi_connected.load(std::memory_order_relaxed) == 1){
+        sendPhotoOverWifi();
+      }
+      else{
+      Serial.print("FIFO first 10 bytes: ");
+        for (int i = 0; i < 10; i++) {
+            uint8_t val = myCAM.read_fifo();
+            Serial.print(val, HEX);
+            Serial.print(" ");
+        }
+        Serial.println();
+        process_image();
+        sendPhotoOverWifi();
+      }
+
+      myCAM.flush_fifo();
+      myCAM.clear_fifo_flag();  // Clear the capture flag
+
+    }
   }
 }
