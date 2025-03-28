@@ -26,6 +26,7 @@ uint32_t line, column;
 
 std::atomic<bool> wiper_at_rest(0);
 std::atomic<bool> wifi_connected(0); 
+std::atomic<bool> client_connected(0);
 
 void process_image();
 void wifiSetup();
@@ -144,7 +145,7 @@ void cameraTask(void *pvParameters)
       myCAM.clear_fifo_flag();
       myCAM.write_reg(ARDUCHIP_FRAMES,0x00);
       // Set resolution (modify this as needed)
-      if (wifi_connected.load(std::memory_order_relaxed)) {
+      if (wifi_connected.load(std::memory_order_relaxed) && client_connected.load(std::memory_order_relaxed)) {
           initializeCameraForWifi();
       } else {
           initializeCameraForLocalProcessing();
@@ -161,7 +162,7 @@ void cameraTask(void *pvParameters)
         yield();  // Prevent watchdog reset
       }
       Serial.println(F("Capture done!"));
-      if(wifi_connected.load(std::memory_order_relaxed) == 1){
+      if (wifi_connected.load(std::memory_order_relaxed) && client_connected.load(std::memory_order_relaxed)) {
         sendPhotoOverWifi();
       }
       else{

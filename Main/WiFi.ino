@@ -82,6 +82,7 @@ void sendPhotoOverWifi()
   WiFiClient client;
   if (client.connect(server, port)) {  // Replace with your server's IP
     Serial.println(F("Connected to server. Sending image..."));
+    client_connected.store(1, std::memory_order_relaxed);
 
     // Send HTTP POST headers
     client.println("POST /upload HTTP/1.1");
@@ -154,5 +155,7 @@ void sendPhotoOverWifi()
 
   } else {
     Serial.println(F("Failed to connect to server."));
+    client_connected.store(0, std::memory_order_relaxed);
+
   }
 }
