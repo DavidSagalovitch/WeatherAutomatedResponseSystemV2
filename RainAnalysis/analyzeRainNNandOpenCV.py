@@ -64,39 +64,57 @@ def detect_raindrops_yolo(image, min_detections=2):
     return overlay, raindrop_detected
 
 
+# RAM-only storage
+latest_image_bytes = None
+latest_overlay_bytes = None
+latest_intensity = 0
+
 @app.route('/upload', methods=['POST'])
 def upload():
+    global latest_image_bytes, latest_overlay_bytes, latest_intensity
+
     try:
         image_bytes = request.data
-        print("First 8 bytes of data:", image_bytes[:8])
+        if not image_bytes:
+            return "No image received", 400
+
+        # Decode once
         np_arr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
         if img is None:
-            print("Failed to decode image.")
             return "Image decoding failed", 400
 
-        print("Running YOLO raindrop detection...")
-        overlay_yolo, detected = detect_raindrops_yolo(img, min_detections=2)
+        # Store the original raw image bytes in RAM
+        latest_image_bytes = image_bytes
+
+        # Run YOLO to check if any raindrops are detected
+        overlay, detected = detect_raindrops_yolo(img, min_detections=2)
 
         if detected:
             print("✔️ YOLO detected raindrops — estimating intensity with OpenCV...")
-            final_overlay, intensity = detect_rain_opencv(img)
+            overlay, latest_intensity = detect_rain_opencv(img)
         else:
-            print("❌ YOLO detected no raindrops — setting intensity to 0.")
-            final_overlay = img.copy()
-            intensity = 0
+            print("❌ YOLO did NOT detect raindrops — skipping OpenCV, intensity set to 0.")
+            overlay = img
+            latest_intensity = 0
 
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_filename = f"rain_overlay.jpg"
-        cv2.imwrite(output_filename, final_overlay)
 
-        print(f"Result saved. Rain Intensity: {intensity}")
-        return str(intensity), 200
+        _, buffer = cv2.imencode('.jpg', overlay)
+        latest_overlay_bytes = buffer.tobytes()
+
+        print(f"✔️ Image processed. Intensity: {latest_intensity}")
+        return str(latest_intensity), 200
 
     except Exception as e:
         print(f"Error: {e}")
         return "Internal Server Error", 500
+
+@app.route('/get_overlay', methods=['GET'])
+def get_overlay():
+    if latest_overlay_bytes is None:
+        return "No overlay available", 404
+
+    return latest_overlay_bytes, 200, {'Content-Type': 'image/jpeg'}
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

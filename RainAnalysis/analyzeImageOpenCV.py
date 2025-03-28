@@ -52,12 +52,19 @@ def detect_rain(image):
 
     return overlay, intensity
 
+# RAM-only storage
+latest_image_bytes = None
+latest_overlay_bytes = None
+latest_intensity = 0
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    global latest_image_bytes, latest_overlay_bytes, latest_intensity
     try:
         image_bytes = request.data
         print("First 8 bytes of data:", image_bytes[:8])
+
+        latest_image_bytes = image_bytes  # store raw
         np_arr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
@@ -66,19 +73,25 @@ def upload():
             return "Image decoding failed", 400
 
         # Run rain detection
-        result_img, intensity = detect_rain(img)
+        print("Running OpenCV-based rain detection...")
+        result_img, latest_intensity = detect_rain(img)
 
-        # Save output with overlay
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_filename = f"rain_overlay.jpg"
-        cv2.imwrite(output_filename, result_img)
+        # Encode overlay to JPEG and store in memory
+        _, buffer = cv2.imencode('.jpg', result_img)
+        latest_overlay_bytes = buffer.tobytes()
 
-        print(f"Rain detection done. Intensity: {intensity}")
-        return str(intensity), 200
+        print(f"Rain detection done. Intensity: {latest_intensity}")
+        return str(latest_intensity), 200
 
     except Exception as e:
         print(f"Error: {e}")
         return "Internal Server Error", 500
 
+@app.route('/get_overlay', methods=['GET'])
+def get_overlay():
+    if latest_overlay_bytes is None:
+        return "No overlay available", 404
+
+    return latest_overlay_bytes, 200, {'Content-Type': 'image/jpeg'}
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
