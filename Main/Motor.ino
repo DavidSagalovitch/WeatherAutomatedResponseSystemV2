@@ -57,6 +57,8 @@ void motor_task(void *pvParameters) {
               int speed = map(wiper_speed_ms, 1500, 116, MIN_SPEED, MAX_SPEED);
               speed = constrain(speed, MIN_SPEED, MAX_SPEED);  // Limit speed
 
+              int sweep_duration_ms = (wiper_speed_ms * 2) / 3;
+
               //Serial.print("Setting motor speed to ");
               //Serial.print(speed);
               //Serial.print(" for 180-degree rotation in ");
@@ -65,7 +67,7 @@ void motor_task(void *pvParameters) {
 
               // Move left (reverse)
               motor_spin_reverse(speed);
-              vTaskDelay(pdMS_TO_TICKS(wiper_speed_ms));  // Convert ms to RTOS ticks
+              vTaskDelay(pdMS_TO_TICKS(sweep_duration_ms));  // Convert ms to RTOS ticks
               motor_stop();
               vTaskDelay(pdMS_TO_TICKS(500));
 
@@ -73,7 +75,7 @@ void motor_task(void *pvParameters) {
 
               // Move right (forward)
               motor_spin_forward(speed);
-              vTaskDelay(pdMS_TO_TICKS(wiper_speed_ms));
+              vTaskDelay(pdMS_TO_TICKS(sweep_duration_ms));
               motor_stop();
 
               //Serial.println("Spinning Forward");
