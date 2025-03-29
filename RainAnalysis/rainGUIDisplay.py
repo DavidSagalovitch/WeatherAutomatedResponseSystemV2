@@ -44,7 +44,7 @@ class RainApp:
         except Exception as e:
             print(f"❌ Error getting overlay: {e}")
 
-        self.master.after(1000, self.poll_for_image)
+        self.master.after(100, self.poll_for_image)
 
 
     def update_display(self):

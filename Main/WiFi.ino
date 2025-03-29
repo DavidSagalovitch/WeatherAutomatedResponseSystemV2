@@ -3,9 +3,10 @@
 const char* ssid = "wars";
 const char* password = "12345678";
 
-const char* server = "192.168.2.173";  // DAVID
+//const char* server = "192.168.2.173";  // DAVID
 //const char* server = "172.17.129.132"; //McMaster on David's laptop
 //const char* server = "192.168.2.27";   // VIKTOR
+const char* server = "192.168.1.5"; //Jack's house
 const int port = 5000;
 
 WiFiClient client;

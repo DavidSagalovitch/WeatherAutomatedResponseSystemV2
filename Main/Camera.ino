@@ -130,7 +130,7 @@ void cameraTask(void *pvParameters)
   myCAM.InitCAM();
   myCAM.write_reg(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
   myCAM.OV5642_set_JPEG_size(resolution);
-
+  delay(1000);
   while(1)
   { 
     if(wiper_at_rest.load(std::memory_order_relaxed))
@@ -147,11 +147,12 @@ void cameraTask(void *pvParameters)
       // Set resolution (modify this as needed)
       if (wifi_connected.load(std::memory_order_relaxed) && client_connected.load(std::memory_order_relaxed)) {
           initializeCameraForWifi();
+          delay(1000);  // Give time for settings to apply
       } else {
           initializeCameraForLocalProcessing();
+          delay(1000);  // Give time for settings to apply
       }
 
-      delay(1000);  // Give time for settings to apply
 
       // Start capture
       myCAM.start_capture();

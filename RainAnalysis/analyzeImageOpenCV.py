@@ -1,24 +1,24 @@
 from flask import Flask, request
 import numpy as np
 import cv2
-import datetime
+from ultralytics import YOLO
+import tkinter as tk
+from tkinter import messagebox
+from PIL import Image, ImageTk
+import cv2
+import io
+import threading
 
 app = Flask(__name__)
 
 def detect_rain(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Apply stronger Gaussian Blur to reduce background texture
     blurred = cv2.GaussianBlur(gray, (7, 7), 0)
-
-    # Edge detection with higher thresholds to avoid small noise
-    edges = cv2.Canny(blurred, 50, 150)
-
-    # Morphological closing to fill gaps in raindrop outlines
+    edges = cv2.Canny(blurred, 30, 100)
+    #edges = cv2.Canny(blurred, 50, 150)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
 
-    # Find contours
     contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     rain_blobs = []
@@ -27,31 +27,26 @@ def detect_rain(image):
         perimeter = cv2.arcLength(cnt, True)
         circularity = (4 * np.pi * area / (perimeter * perimeter)) if perimeter > 0 else 0
 
-        # Filter for typical raindrop size and shape (somewhat circular)
-        if 80 < area < 800 and circularity > 0.5:
-            # Optional: brightness mask filter
+        #if 80 < area < 800 and circularity > 0.5:
+        if 30 < area < 1000 and circularity > 0.5:
             mask = np.zeros(gray.shape, dtype=np.uint8)
             cv2.drawContours(mask, [cnt], -1, 255, -1)
             mean_brightness = cv2.mean(gray, mask=mask)[0]
-            if mean_brightness > 120:  # raindrops are often bright reflections
+            if mean_brightness > 100: #120
                 rain_blobs.append(cnt)
 
-    # Overlay detected raindrops
     overlay = image.copy()
     for cnt in rain_blobs:
         x, y, w, h = cv2.boundingRect(cnt)
         cv2.rectangle(overlay, (x, y), (x + w, y + h), (0, 0, 255), 1)
 
-    blob_count = len(rain_blobs)
     total_blob_area = sum([cv2.contourArea(c) for c in rain_blobs])
     image_area = image.shape[0] * image.shape[1]
     coverage_ratio = total_blob_area / image_area
 
-    # Make intensity rely more on coverage
-    intensity = int(min(100, coverage_ratio * 10000))  # scale factor tuned
+    intensity = int(min(100, coverage_ratio * 10000))  # scale factor
 
     return overlay, intensity
-
 # RAM-only storage
 latest_image_bytes = None
 latest_overlay_bytes = None
@@ -87,11 +82,65 @@ def upload():
         print(f"Error: {e}")
         return "Internal Server Error", 500
 
-@app.route('/get_overlay', methods=['GET'])
-def get_overlay():
-    if latest_overlay_bytes is None:
-        return "No overlay available", 404
+class RainApp:
+    def __init__(self, master):
+        self.master = master
+        master.title("Rain Detection Viewer")
+        self.last_overlay_image = None
+        self.img_display = None
+        self.last_seen_bytes = None  # Track changes
 
-    return latest_overlay_bytes, 200, {'Content-Type': 'image/jpeg'}
+        self.label = tk.Label(master, text="Waiting for image from Arduino...")
+        self.label.pack()
+
+        self.canvas = tk.Canvas(master, bg="black")
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+        self.master.update_idletasks()
+
+        self.intensity_label = tk.Label(master, text="")
+        self.intensity_label.pack()
+        self.master.bind("<Configure>", lambda e: self.update_display())
+
+        self.poll_for_update()  # Start monitoring
+
+    def poll_for_update(self):
+        from __main__ import latest_overlay_bytes, latest_intensity  # access globals in shared script
+
+        try:
+            if latest_overlay_bytes and latest_overlay_bytes != self.last_seen_bytes:
+                self.last_seen_bytes = latest_overlay_bytes
+                self.last_overlay_image = latest_overlay_bytes
+                self.update_display()
+                self.intensity_label.config(text=f"Rain Intensity: {latest_intensity}")
+        except Exception as e:
+            print(f"❌ GUI Update Error: {e}")
+
+        self.master.after(100, self.poll_for_update)
+
+    def update_display(self):
+        if self.last_overlay_image is None:
+            return
+
+        win_width = self.canvas.winfo_width()
+        win_height = self.canvas.winfo_height()
+
+        image_stream = io.BytesIO(self.last_overlay_image)
+        pil_img = Image.open(image_stream)
+
+        pil_img = pil_img.resize((win_width, win_height), Image.Resampling.LANCZOS)
+        self.img_display = ImageTk.PhotoImage(pil_img)
+
+        self.canvas.delete("all")
+        self.canvas.create_image(0, 0, anchor=tk.NW, image=self.img_display)
+
+
+def start_flask():
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    flask_thread = threading.Thread(target=start_flask, daemon=True)
+    flask_thread.start()
+    root = tk.Tk()
+    app = RainApp(root)
+    root.mainloop()
+
