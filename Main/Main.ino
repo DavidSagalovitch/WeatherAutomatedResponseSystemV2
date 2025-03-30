@@ -9,7 +9,7 @@ void setup(){
     //xTaskCreatePinnedToCore(cameraTask, "CameraTask", 8192, NULL, 1, &TaskCamera, 1);
     //xTaskCreatePinnedToCore(motor_task, "MotorTask", 8192, NULL, 1, &TaskMotor, 0);
     //xTaskCreatePinnedToCore(lidarTask, "LidarTask", 4096, NULL, 1, &TaskLidar, 0);
-    xTaskCreatePinnedToCore(fantask, "FanTask", 4096, NULL, 1, &TaskFan, 0);
+    xTaskCreatePinnedToCore(fanTask, "FanTask", 4096, NULL, 1, &TaskFan, 0);
     }
 
 void loop() {

@@ -1,6 +1,8 @@
-#define FAN_PWM_PIN 12      // PWM control pin
-#define FAN_TACH_PIN 13     // Fan tach input pin
+#include <Arduino.h>
+#define FAN_PWM 12      // PWM control pin
+#define FAN_TACH 13     // Fan tach input pin
 #define FAN_PWM_FREQ 25000  // Typical fan PWM frequency
+#define FAN_PWM_CHANNEL 0   // PWM channel
 #define FAN_PWM_RESOLUTION 8
 #define TACH_PULSES_PER_REV 2  // Most PC fans give 2 pulses per revolution
 
@@ -12,16 +14,17 @@ void IRAM_ATTR tachISR() {
   tach_pulse_count++;
 }
 
-void fanSetup() {
-  // Set up PWM on GPIO 12
-  //ledcSetup(0, FAN_PWM_FREQ, FAN_PWM_RESOLUTION);  
-  //ledcAttachPin(FAN_PWM_PIN, 0);
+void fan_init() {
+  analogWriteFrequency(FAN_PWM, FAN_PWM_FREQ);
+  pinMode(FAN_PWM, OUTPUT);
+  // Set initial fan speed to OFF (0% duty)
+  analogWrite(FAN_PWM, 0);
 
   // Set up tach input on GPIO 13
-  pinMode(FAN_TACH_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(FAN_TACH_PIN), tachISR, FALLING);
+  pinMode(FAN_TACH, INPUT);
+  attachInterrupt(digitalPinToInterrupt(FAN_TACH), tachISR, FALLING);
 
-  Serial.println("Fan control with RPM monitoring started.");
+  Serial.println("Fan control initialized.");
 }
 
 void printFanRPM() {
@@ -41,26 +44,33 @@ void printFanRPM() {
   Serial.println(rpm);
 }
 
-void fanTask() {
+void fanTask(void *pvParameters) {
   while (true){
-    // Ramp fan speed from 0 to 100%
+     Serial.println("Increasing fan speed...");
+  
+    // Gradually increase speed
     for (int duty = 0; duty <= 255; duty += 50) {
-      ledcWrite(0, duty);
-      Serial.print("Set fan duty cycle: ");
-      Serial.println(duty);
+      analogWrite(FAN_PWM_CHANNEL, duty);
+      Serial.print("Set fan speed: ");
+      Serial.print((duty / 255.0) * 100);
+      Serial.println("%");
       delay(2000);
       printFanRPM();
     }
 
-    // Ramp down from 100% to 0%
+    Serial.println("Decreasing fan speed...");
+    
+    // Gradually decrease speed
     for (int duty = 255; duty >= 0; duty -= 50) {
-      ledcWrite(0, duty);
-      Serial.print("Set fan duty cycle: ");
-      Serial.println(duty);
+      analogWrite(FAN_PWM_CHANNEL, duty);
+      Serial.print("Set fan speed: ");
+      Serial.print((duty / 255.0) * 100);
+      Serial.println("%");
       delay(2000);
       printFanRPM();
     }
-
+    Serial.println("Turning fan off...");
+    analogWrite(FAN_PWM_CHANNEL, 0); // Turn fan off
     delay(3000);
   }
 }
