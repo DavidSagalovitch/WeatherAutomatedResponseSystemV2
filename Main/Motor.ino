@@ -72,9 +72,12 @@ void motor_task(void *pvParameters) {
               //Serial.print(wiper_speed_ms);
               //Serial.println(" ms");
               // Move left (reverse)
-              if (port){
+              if (port && !lidar_wiper_detected.load(std::memory_order_relaxed)){
                   motor_spin_reverse(speed);
-                  vTaskDelay(pdMS_TO_TICKS(350));  // Convert ms to RTOS ticks
+                  //vTaskDelay(pdMS_TO_TICKS(350));  // Convert ms to RTOS ticks
+                  while (!lidar_wiper_detected.load(std::memory_order_relaxed)){
+                    vTaskDelay(pdMS_TO_TICKS(5))
+                  }
                   motor_stop();
                   //vTaskDelay(pdMS_TO_TICKS(1000));
                   port = 0;
@@ -82,9 +85,12 @@ void motor_task(void *pvParameters) {
               else{
               //Serial.println("Spinning Reverse");
                 // Move right (forward)
-                motor_spin_forward(speed);
-                vTaskDelay(pdMS_TO_TICKS(350));
-                motor_stop();
+                //motor_spin_forward(speed);
+                //vTaskDelay(pdMS_TO_TICKS(350));
+                while (!lidar_wiper_detected.load(std::memory_order_relaxed)){
+                    vTaskDelay(pdMS_TO_TICKS(5))
+                }
+                //motor_stop();
                 //vTaskDelay(pdMS_TO_TICKS(1000));
                 port = 1;
               }

@@ -44,6 +44,16 @@ float read_distance() {
     return distance_cm;
 }
 
+bool detect_wiper() {
+    float distance;
+    while (1) {
+        distance = read_distance();
+        if distance != 63.98 {
+            return true;
+        }
+    }
+}
+
 bool detect_water() {
     float distances[SAMPLE_COUNT];
     float sum = 0, mean, variance = 0, stddev;
@@ -73,6 +83,10 @@ bool detect_water() {
 void lidarTask(void *pvParameters) {
   Wire.begin();
   while(true){
+    if (detect_wiper()) {
+        lidar_wiper_detected.store(1, std::memory_order_relaxed);
+    }
+    /*
     if (detect_water()) {
         Serial.println("Water detected on windshield!");
         lidar_rain_detected.store(1, std::memory_order_relaxed);
@@ -81,6 +95,7 @@ void lidarTask(void *pvParameters) {
         lidar_rain_detected.store(0, std::memory_order_relaxed);
     }
      delay(2000);
+     */
   }
 }
 
