@@ -65,6 +65,7 @@ void sendPhotoOverWifi()
             NULL,                    // Handle (not needed)
             1                        // Core (can be 0 or 1)
         );
+        camera_rain_intensity.store(0, std::memory_order_relaxed);
         return;
     }
   // Get image length from FIFO

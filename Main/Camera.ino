@@ -130,10 +130,11 @@ void cameraTask(void *pvParameters)
   myCAM.InitCAM();
   myCAM.write_reg(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
   myCAM.OV5642_set_JPEG_size(resolution);
+  initializeCameraForWifi();
   delay(1000);
   while(1)
   { 
-    if(wiper_at_rest.load(std::memory_order_relaxed))
+    if(1)
     {
       char VL;
       byte buf[256];  // Temporary buffer for reading data
@@ -145,14 +146,6 @@ void cameraTask(void *pvParameters)
       myCAM.clear_fifo_flag();
       myCAM.write_reg(ARDUCHIP_FRAMES,0x00);
       // Set resolution (modify this as needed)
-      if (wifi_connected.load(std::memory_order_relaxed) && client_connected.load(std::memory_order_relaxed)) {
-          initializeCameraForWifi();
-          delay(1000);  // Give time for settings to apply
-      } else {
-          initializeCameraForLocalProcessing();
-          delay(1000);  // Give time for settings to apply
-      }
-
 
       // Start capture
       myCAM.start_capture();
@@ -174,13 +167,11 @@ void cameraTask(void *pvParameters)
             Serial.print(" ");
         }
         Serial.println();
-        process_image();
         sendPhotoOverWifi();
       }
 
       myCAM.flush_fifo();
       myCAM.clear_fifo_flag();  // Clear the capture flag
-
     }
   }
 }
