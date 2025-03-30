@@ -48,7 +48,7 @@ bool detect_wiper() {
     float distance;
     while (1) {
         distance = read_distance();
-        if distance != 63.98 {
+        if (distance < 60) {
             return true;
         }
     }

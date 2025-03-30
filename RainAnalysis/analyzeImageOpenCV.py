@@ -130,10 +130,10 @@ class RainApp:
         # Overlay rain intensity text in red, large font
         font_size = max(20, win_width // 20)  # Scale font size based on window width
         self.canvas.create_text(
-            win_width // 2, win_height - 50,  # Position near the bottom center
+            win_width // 2, win_height - 70,  # Position near the bottom center
             text=self.intensity_text, 
-            fill="red", 
-            font=("Arial", font_size, "bold")
+            fill="Violet", 
+            font=("Impact", font_size, "bold")
         )
 
 

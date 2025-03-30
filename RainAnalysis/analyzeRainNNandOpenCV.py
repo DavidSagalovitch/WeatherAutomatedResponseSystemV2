@@ -123,29 +123,24 @@ class RainApp:
         self.last_overlay_image = None
         self.img_display = None
         self.last_seen_bytes = None  # Track changes
-
-        self.label = tk.Label(master, text="Waiting for image from Arduino...")
-        self.label.pack()
+        self.intensity_text = ""
 
         self.canvas = tk.Canvas(master, bg="black")
         self.canvas.pack(fill=tk.BOTH, expand=True)
         self.master.update_idletasks()
 
-        self.intensity_label = tk.Label(master, text="")
-        self.intensity_label.pack()
         self.master.bind("<Configure>", lambda e: self.update_display())
-
         self.poll_for_update()  # Start monitoring
 
     def poll_for_update(self):
-        from __main__ import latest_overlay_bytes, latest_intensity  # access globals in shared script
+        from __main__ import latest_overlay_bytes, latest_intensity  # Access globals in shared script
 
         try:
             if latest_overlay_bytes and latest_overlay_bytes != self.last_seen_bytes:
                 self.last_seen_bytes = latest_overlay_bytes
                 self.last_overlay_image = latest_overlay_bytes
+                self.intensity_text = f"Rain Intensity: {latest_intensity}"
                 self.update_display()
-                self.intensity_label.config(text=f"Rain Intensity: {latest_intensity}")
         except Exception as e:
             print(f"❌ GUI Update Error: {e}")
 
@@ -160,12 +155,20 @@ class RainApp:
 
         image_stream = io.BytesIO(self.last_overlay_image)
         pil_img = Image.open(image_stream)
-
         pil_img = pil_img.resize((win_width, win_height), Image.Resampling.LANCZOS)
         self.img_display = ImageTk.PhotoImage(pil_img)
 
         self.canvas.delete("all")
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.img_display)
+        
+        # Overlay rain intensity text in red, large font
+        font_size = max(20, win_width // 20)  # Scale font size based on window width
+        self.canvas.create_text(
+            win_width // 2, win_height - 70,  # Position near the bottom center
+            text=self.intensity_text, 
+            fill="Violet", 
+            font=("Impact", font_size, "bold")
+        )
 
 
 def start_flask():
