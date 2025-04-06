@@ -1,4 +1,5 @@
 # WeatherAutomatedResponseSystemV2
+![image](https://github.com/DavidSagalovitch/WeatherAutomatedResponseSystemV2/blob/main/Pictures/WARS_logo.png)
 # The Weather Automated Response System
 A CAPSTONE project by David Sagalovitch, Viktor Veljanovski, Cole Cadera, and Jackson Bell
 ## Description
@@ -9,7 +10,3 @@ This plug-and-play solution allows for seamless integration of an automated wind
 - Washer Fluid Spray
 ## Design
 ![image](https://github.com/DavidSagalovitch/WeatherAutomatedResponseSystemV2/blob/main/Pictures/overview.png)
-
-![image](https://github.com/DavidSagalovitch/WeatherAutomatedResponseSystemV2/blob/main/Pictures/WARS_logo.png)
-![image](https://github.com/DavidSagalovitch/WeatherAutomatedResponseSystemV2/blob/main/Pictures/ece_logo.png)
-
