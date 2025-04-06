@@ -6,7 +6,7 @@ const char* password = "12345678";
 //const char* server = "192.168.2.173";  // DAVID
 //const char* server = "172.17.129.132"; //McMaster on David's laptop
 //const char* server = "192.168.2.27";   // VIKTOR
-const char* server = "192.168.1.5"; //Jack's house
+const char* server = "192.168.1.17"; //Jack's house
 const int port = 5000;
 
 WiFiClient client;
@@ -143,15 +143,43 @@ void sendPhotoOverWifi()
     }
   }
 
+  // Convert and store both rain and fog
   Serial.println("Server message:");
   Serial.println(body);
-  
-  // Convert and store
-  float intensity = body.toFloat();
-  Serial.print("Parsed rain intensity: ");
-  Serial.println(intensity);
 
-  camera_rain_intensity.store(intensity, std::memory_order_relaxed);
+  float rain_intensity = 0;
+  float fog_value = 0;
+
+  // Simple parsing
+  int rainIdx = body.indexOf("Rain:");
+  int fogIdx = body.indexOf("Fog:");
+
+  if (rainIdx != -1 && fogIdx != -1) {
+    String rainStr = body.substring(rainIdx + 5, body.indexOf(",", rainIdx));
+    String fogStr = body.substring(fogIdx + 4);
+
+    rainStr.trim();
+    fogStr.trim();
+
+    rain_intensity = rainStr.toFloat();
+
+    // You can parse fog as float or check for boolean
+    if (fogStr == "True") {
+      fog_value = 1;
+    } else if (fogStr == "False") {
+      fog_value = 0;
+    } else {
+      fog_value = fogStr.toFloat();  // For numeric fog intensity
+    }
+
+    Serial.print("Parsed rain intensity: ");
+    Serial.println(rain_intensity);
+    Serial.print("Parsed fog: ");
+    Serial.println(fog_value);
+
+    camera_rain_intensity.store(rain_intensity, std::memory_order_relaxed);
+    camera_fog.store(fog_value, std::memory_order_relaxed);  // NEW: fog variable
+  }
 
   client.stop();
 

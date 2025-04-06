@@ -6,6 +6,7 @@ std::atomic<bool> is_day(0);
 std::atomic<bool> lidar_rain_detected(0);
 std::atomic<bool> lidar_wiper_detected(0);
 std::atomic<bool> lidar_rain_intensity(0);
+std::atomic<bool> camera_fog(0);
 
 uint16_t getWiperSpeed()
 {
@@ -29,4 +30,16 @@ uint16_t getWiperSpeed()
   else return 150;
   
   return 0;
+}
+
+uint16_t getFanSpeed()
+{
+  bool fog = camera_fog.load(std::memory_order_relaxed);
+  if (fog != 0) {
+    uint16_t fan_speed = 255;
+    return fan_speed;
+  }
+  else {
+    return 0;
+  }
 }

@@ -9,6 +9,10 @@ import cv2
 import io
 import threading
 
+latest_overlay_bytes = None
+latest_intensity = 0.0
+latest_fog_intensity = False  # or 0, or whatever your fog system uses
+
 IMAGE_PATH = "latest.jpg"  # Image saved by Arduino upload
 app = Flask(__name__)
 
@@ -76,25 +80,59 @@ latest_image_bytes = None
 latest_overlay_bytes = None
 latest_intensity = 0
 
+def detect_fog(image):
+    """
+    Detects fog in an image by analyzing horizontal and vertical intensity variance.
+    Lower variance in both directions suggests fog due to reduced contrast.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    height, width = gray.shape
+
+    # Horizontal variance (across rows)
+    horizontal_variances = [
+        np.var(gray[y, :]) for y in range(0, height, max(1, height // 50))
+    ]
+
+    # Vertical variance (across columns)
+    vertical_variances = [
+        np.var(gray[:, x]) for x in range(0, width, max(1, width // 50))
+    ]
+
+    # Average both sets of variance
+    avg_horizontal = np.mean(horizontal_variances)
+    avg_vertical = np.mean(vertical_variances)
+    combined_variance = (avg_horizontal + avg_vertical) / 2
+
+    # Tune this threshold experimentally
+    fog_threshold = 1100  
+
+    # Compute fog intensity (more sensitive scaling)
+    fog_intensity = max(0, 100 - int(combined_variance * 0.15))
+
+    is_foggy = combined_variance < fog_threshold
+    if is_foggy and fog_intensity < 20:
+        fog_intensity = 20  # force a baseline level when fog is declared True
+
+    return is_foggy, fog_intensity
+
+
 @app.route('/upload', methods=['POST'])
 def upload():
-    global latest_image_bytes, latest_overlay_bytes, latest_intensity
+    global latest_image_bytes, latest_overlay_bytes, latest_intensity, latest_fog_intensity
 
     try:
         image_bytes = request.data
         if not image_bytes:
             return "No image received", 400
 
-        # Decode once
         np_arr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         if img is None:
             return "Image decoding failed", 400
 
-        # Store the original raw image bytes in RAM
         latest_image_bytes = image_bytes
 
-        # Run YOLO to check if any raindrops are detected
+        # Run YOLO to detect raindrops
         overlay, detected = detect_raindrops_yolo(img, min_detections=2)
 
         if detected:
@@ -105,13 +143,17 @@ def upload():
             overlay = img
             latest_intensity = 0
 
+        # Run fog detection
+        is_foggy, latest_fog_intensity = detect_fog(img)
+
+        if is_foggy:
+            print(f"⚠️ Fog detected! Intensity: {latest_fog_intensity}")
 
         _, buffer = cv2.imencode('.jpg', overlay)
         latest_overlay_bytes = buffer.tobytes()
 
-        print(f"✔️ Image processed. Intensity: {latest_intensity}")
-        return str(latest_intensity), 200
-
+        print(f"✔️ Image processed. Rain Intensity: {latest_intensity}, Fog Intensity: {latest_fog_intensity}")
+        return f"Rain: {latest_intensity}, Fog: {is_foggy}", 200
     except Exception as e:
         print(f"Error: {e}")
         return "Internal Server Error", 500
@@ -119,11 +161,12 @@ def upload():
 class RainApp:
     def __init__(self, master):
         self.master = master
-        master.title("Rain Detection Viewer")
+        master.title("Rain & Fog Detection Viewer")
         self.last_overlay_image = None
         self.img_display = None
         self.last_seen_bytes = None  # Track changes
         self.intensity_text = ""
+        self.fog_text = ""
 
         self.canvas = tk.Canvas(master, bg="black")
         self.canvas.pack(fill=tk.BOTH, expand=True)
@@ -133,13 +176,14 @@ class RainApp:
         self.poll_for_update()  # Start monitoring
 
     def poll_for_update(self):
-        from __main__ import latest_overlay_bytes, latest_intensity  # Access globals in shared script
+        from __main__ import latest_overlay_bytes, latest_intensity, latest_fog_intensity  # Access globals
 
         try:
             if latest_overlay_bytes and latest_overlay_bytes != self.last_seen_bytes:
                 self.last_seen_bytes = latest_overlay_bytes
                 self.last_overlay_image = latest_overlay_bytes
                 self.intensity_text = f"Rain Intensity: {latest_intensity}"
+                self.fog_text = f"Fog Intensity: {latest_fog_intensity}"
                 self.update_display()
         except Exception as e:
             print(f"❌ GUI Update Error: {e}")
@@ -161,15 +205,22 @@ class RainApp:
         self.canvas.delete("all")
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.img_display)
         
-        # Overlay rain intensity text in red, large font
-        font_size = max(20, win_width // 20)  # Scale font size based on window width
+        # Overlay rain intensity text
+        font_size = max(15, win_width // 30)  # Scale font size based on window width
         self.canvas.create_text(
             win_width // 2, win_height - 70,  # Position near the bottom center
             text=self.intensity_text, 
-            fill="Violet", 
-            font=("Impact", font_size, "bold")
+            fill="red", 
+            font=("Arial", font_size, "bold")
         )
 
+        # Overlay fog intensity text above rain intensity
+        self.canvas.create_text(
+            win_width // 2, win_height - 120,  # Move it slightly up
+            text=self.fog_text, 
+            fill="cyan", 
+            font=("Arial", font_size, "bold")
+        )
 
 def start_flask():
     app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
@@ -180,5 +231,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = RainApp(root)
     root.mainloop()
-
-

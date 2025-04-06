@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#define FAN_PWM 12      // PWM control pin
+#define FAN_PWM 14      // PWM control pin
 #define FAN_TACH 13     // Fan tach input pin
 #define FAN_PWM_FREQ 25000  // Typical fan PWM frequency
 #define FAN_PWM_CHANNEL 0   // PWM channel
@@ -18,7 +18,7 @@ void fan_init() {
   analogWriteFrequency(FAN_PWM, FAN_PWM_FREQ);
   pinMode(FAN_PWM, OUTPUT);
   // Set initial fan speed to OFF (0% duty)
-  analogWrite(FAN_PWM, 0);
+  analogWrite(FAN_PWM, LOW);
 
   // Set up tach input on GPIO 13
   pinMode(FAN_TACH, INPUT);
@@ -46,11 +46,28 @@ void printFanRPM() {
 
 void fanTask(void *pvParameters) {
   while (true){
-     Serial.println("Increasing fan speed...");
-  
+    int duty = getFanSpeed();
+    if (duty > 0){
+      Serial.println("Increasing fan speed...");
+      analogWrite(FAN_PWM, duty);
+      Serial.print("Set fan speed: ");
+      Serial.print((duty / 255.0) * 100);
+      Serial.println("%");
+      delay(1000);
+      printFanRPM();
+    }
+    else {
+      Serial.println("Turning fan off...");
+      analogWrite(FAN_PWM, 0); // Turn fan off
+      delay(3000);
+    }
+    /*
+    Serial.println("Turning fan off...");
+    analogWrite(FAN_PWM, 0); // Turn fan off
+    delay(20000);
     // Gradually increase speed
     for (int duty = 0; duty <= 255; duty += 50) {
-      analogWrite(FAN_PWM_CHANNEL, duty);
+      analogWrite(FAN_PWM, duty);
       Serial.print("Set fan speed: ");
       Serial.print((duty / 255.0) * 100);
       Serial.println("%");
@@ -62,15 +79,13 @@ void fanTask(void *pvParameters) {
     
     // Gradually decrease speed
     for (int duty = 255; duty >= 0; duty -= 50) {
-      analogWrite(FAN_PWM_CHANNEL, duty);
+      analogWrite(FAN_PWM, duty);
       Serial.print("Set fan speed: ");
       Serial.print((duty / 255.0) * 100);
       Serial.println("%");
       delay(2000);
       printFanRPM();
     }
-    Serial.println("Turning fan off...");
-    analogWrite(FAN_PWM_CHANNEL, 0); // Turn fan off
-    delay(3000);
+    */
   }
 }
