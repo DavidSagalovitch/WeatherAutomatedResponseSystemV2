@@ -8,5 +8,8 @@ This plug-and-play solution allows for seamless integration of an automated wind
 - Climate Control (Defroster)
 - Washer Fluid Spray
 ## Design
-![image](https://github.com/user-attachments/assets/c20066b3-9ce1-42a4-a04a-1199a5723a3e)
+![image](https://github.com/DavidSagalovitch/WeatherAutomatedResponseSystemV2/blob/main/Pictures/overview.png)
+
+![image](https://github.com/DavidSagalovitch/WeatherAutomatedResponseSystemV2/blob/main/Pictures/WARS_logo.png)
+![image](https://github.com/DavidSagalovitch/WeatherAutomatedResponseSystemV2/blob/main/Pictures/ece_logo.png)
 
